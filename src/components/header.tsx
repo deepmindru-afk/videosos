@@ -33,7 +33,7 @@ export default function Header({
       <nav className="flex flex-row items-center justify-end gap-1">
         <Button variant="ghost" size="sm" asChild>
           <a
-            href="https://github.com/timoncool/videosos"
+            href="https://www.portalos.ru"
             target="_blank"
             rel="noopener noreferrer"
           >
