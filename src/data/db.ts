@@ -1,47 +1,82 @@
 import { openDB } from "idb";
-import type {
-  MediaItem,
-  VideoKeyFrame,
-  VideoProject,
-  VideoTrack,
+import {
+  type MediaItem,
+  PROJECT_PLACEHOLDER,
+  type VideoKeyFrame,
+  type VideoProject,
+  type VideoTrack,
 } from "./schema";
 
+const dbPromise = openDB("ai-vstudio-db-v2", 1, {
+  upgrade(db) {
+    db.createObjectStore("projects", { keyPath: "id" });
+
+    const trackStore = db.createObjectStore("tracks", { keyPath: "id" });
+    trackStore.createIndex("by_projectId", "projectId");
+
+    const keyFrameStore = db.createObjectStore("keyFrames", {
+      keyPath: "id",
+    });
+    keyFrameStore.createIndex("by_trackId", "trackId");
+
+    const mediaStore = db.createObjectStore("media_items", {
+      keyPath: "id",
+    });
+    mediaStore.createIndex("by_projectId", "projectId");
+  },
+  blocked() {
+    console.warn(
+      "[IndexedDB] Database upgrade blocked - another connection is open",
+    );
+  },
+  blocking() {
+    console.warn("[IndexedDB] This connection is blocking a version upgrade");
+  },
+  terminated() {
+    console.error("[IndexedDB] Database connection terminated unexpectedly");
+  },
+});
+
 function open() {
-  return openDB("ai-vstudio-db-v2", 1, {
-    upgrade(db) {
-      db.createObjectStore("projects", { keyPath: "id" });
-
-      const trackStore = db.createObjectStore("tracks", { keyPath: "id" });
-      trackStore.createIndex("by_projectId", "projectId");
-
-      const keyFrameStore = db.createObjectStore("keyFrames", {
-        keyPath: "id",
-      });
-      keyFrameStore.createIndex("by_trackId", "trackId");
-
-      const mediaStore = db.createObjectStore("media_items", {
-        keyPath: "id",
-      });
-      mediaStore.createIndex("by_projectId", "projectId");
-    },
-  });
+  return dbPromise;
 }
 
 export const db = {
   projects: {
     async find(id: string): Promise<VideoProject | null> {
       const db = await open();
-      return db.get("projects", id);
+      const project = await db.get("projects", id);
+      if (!project) return null;
+      return {
+        ...PROJECT_PLACEHOLDER,
+        ...project,
+        duration:
+          typeof project.duration === "number"
+            ? project.duration
+            : PROJECT_PLACEHOLDER.duration,
+      } satisfies VideoProject;
     },
     async list(): Promise<VideoProject[]> {
       const db = await open();
-      return db.getAll("projects");
+      const projects = await db.getAll("projects");
+      return projects.map((project) => ({
+        ...PROJECT_PLACEHOLDER,
+        ...project,
+        duration:
+          typeof project.duration === "number"
+            ? project.duration
+            : PROJECT_PLACEHOLDER.duration,
+      })) as VideoProject[];
     },
     async create(project: Omit<VideoProject, "id">) {
       const db = await open();
       return db.put("projects", {
         id: crypto.randomUUID(),
         ...project,
+        duration:
+          typeof project.duration === "number"
+            ? project.duration
+            : PROJECT_PLACEHOLDER.duration,
       });
     },
     async update(id: string, project: Partial<VideoProject>) {
@@ -52,6 +87,10 @@ export const db = {
         ...existing,
         ...project,
         id,
+        duration:
+          typeof (project.duration ?? existing.duration) === "number"
+            ? (project.duration ?? existing.duration)
+            : PROJECT_PLACEHOLDER.duration,
       });
     },
     async delete(id: string) {
@@ -74,10 +113,14 @@ export const db = {
         id,
       );
 
+      // Clean up blob URLs for all media items that have blobs (both uploaded and generated)
       for (const media of mediaItems) {
-        if (media.kind === "uploaded" && media.blob) {
-          const { revokeBlobUrl } = await import("@/lib/utils");
+        const { revokeBlobUrl } = await import("@/lib/utils");
+        if (media.blob) {
           revokeBlobUrl(media.id);
+        }
+        if (media.thumbnailBlob) {
+          revokeBlobUrl(`${media.id}-thumbnail`);
         }
       }
 
@@ -194,9 +237,13 @@ export const db = {
       const media: MediaItem | null = await db.get("media_items", id);
       if (!media) return;
 
-      if (media.kind === "uploaded" && media.blob) {
-        const { revokeBlobUrl } = await import("@/lib/utils");
+      // Clean up blob URLs if this media item has blobs (both uploaded and generated)
+      const { revokeBlobUrl } = await import("@/lib/utils");
+      if (media.blob) {
         revokeBlobUrl(id);
+      }
+      if (media.thumbnailBlob) {
+        revokeBlobUrl(`${id}-thumbnail`);
       }
 
       const tracks = await db.getAllFromIndex(

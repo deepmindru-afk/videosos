@@ -13,11 +13,11 @@ Create professional videos with AI in your browser. Free, open-source video edit
 
 ## Screenshots
 
-### Landing Page
-![VideoSOS Landing Page](./public/screenshot-landing.png)
+### Video Editor — Main Interface
+![VideoSOS Video Editor - Main Interface](./public/screenshot-app.png)
 
-### Video Editor
-![VideoSOS Video Editor](./public/screenshot-app.png)
+### Video Editor — Project Statistics
+![VideoSOS Video Editor - Project Statistics](./public/screenshot-stats.png)
 
 ---
 
@@ -39,6 +39,12 @@ Everything runs locally in your browser. Your projects, media, and API keys are 
 
 ### 🎬 Timeline Editor
 Advanced multi-track video editing with drag-and-drop functionality, precise keyframe control, audio waveform visualization, and real-time preview. Support for multiple aspect ratios (16:9, 9:16, 1:1) perfect for social media platforms.
+
+### 💰 Cost Tracking & Project Statistics
+Built-in cost tracking and comprehensive project analytics help you stay within budget. Track generation costs per media item, view total project expenses, and get detailed breakdowns by media type, AI provider, and model usage. Perfect for managing your AI generation budget and analyzing usage patterns.
+
+### 🔍 Advanced Model Selection
+Enhanced model selection interface with intelligent search, filtering by provider (FAL/Runware), and categorization by type (text-to-video, image-to-video, text-to-image, image editing). Real-time pricing display for FAL models helps you make informed decisions before generating content.
 
 ### 🎨 Multi-Modal Content Generation
 Create complete video projects with AI-generated images, videos, background music, and voiceovers. Advanced features include camera movement controls, video upscaling with Topaz, and automatic lip-sync for voiceovers.
@@ -113,6 +119,57 @@ You can use either provider independently or both simultaneously. Simply add you
 - **Runware API Key**: Sign up at [runware.ai](https://runware.ai) and get your key from the dashboard
 
 Both API keys are stored locally in your browser and never sent to our servers.
+
+## For Developers
+
+### Updating Model Information
+
+VideoSOS includes automated scripts to keep model information up-to-date with provider APIs. Here's how to update models:
+
+#### FAL Models
+
+Run the FAL model update script to fetch latest models and pricing:
+
+```bash
+npm run update-fal-models
+```
+
+This script:
+- Fetches all available models from FAL API
+- Updates model schemas and parameters
+- Syncs pricing information
+- Updates `src/lib/fal.ts` and related files
+
+#### Runware Models
+
+For Runware models, manually enrich model configurations in `src/lib/runware-models.ts` based on [Runware documentation](https://docs.runware.ai/):
+
+1. Check model documentation for available parameters
+2. Add `availableDimensions`, `hasNegativePrompt`, `availableSteps`, etc.
+3. Verify changes match actual API capabilities
+
+**Example enrichment:**
+```typescript
+{
+  endpointId: "google:4@1",
+  label: "Gemini Flash Image 2.5",
+  hasNegativePrompt: true,
+  availableDimensions: [
+    { width: 1024, height: 1024, label: "1024×1024 (1:1)" },
+    { width: 1824, height: 1024, label: "1824×1024 (16:9)" },
+    // ... more dimensions
+  ],
+}
+```
+
+#### Safe Updates
+
+The project includes safe update scripts that preserve existing configurations:
+
+```bash
+# Apply FAL parameter updates safely
+npm run safe-apply-parameters
+```
 
 ### Tech Stack
 

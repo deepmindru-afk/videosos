@@ -1,6 +1,13 @@
 "use client";
 
 import { createFalClient } from "@fal-ai/client";
+import {
+  type ModelPricing,
+  calculateModelCost,
+  formatCost,
+  getModelSchema,
+  getPricingInfo,
+} from "./pricing";
 
 export const fal = createFalClient({
   credentials: () =>
@@ -22,8 +29,8 @@ export type ApiInfo = {
   provider: "fal" | "runware";
   endpointId: string;
   label: string;
-  description: string;
-  cost?: string;
+  description?: string;
+  cost?: string; // Deprecated: Use getPricingInfo() or calculateModelCost() instead
   popularity: number;
   inferenceTime?: string;
   inputMap?: Record<string, string>;
@@ -32,7 +39,58 @@ export type ApiInfo = {
   cameraControl?: boolean;
   imageForFrame?: boolean;
   category: "image" | "video" | "music" | "voiceover";
+  architecture?: string; // Raw architecture from bundle (e.g., "sdxl", "flux", "imagen")
+  modelType?: string; // Model family/type for categorization (e.g., "FLUX", "Stable Diffusion", "Veo", "Sora")
   prompt?: boolean;
+
+  // Model-specific constraints for UI options
+  availableDurations?: number[]; // e.g., [4, 6, 8] or [8] for fixed duration
+  availableDimensions?: Array<{
+    width: number;
+    height: number;
+    label: string;
+    preset?: string;
+  }>;
+  supportedAspectRatios?: Array<{
+    width: number;
+    height: number;
+    label: string;
+  }>;
+  availableFps?: number[]; // e.g., [24] or [24, 25, 50]
+  defaultDuration?: number;
+  defaultWidth?: number;
+  defaultHeight?: number;
+  defaultFps?: number;
+
+  // Steps/inference parameters
+  availableSteps?: number[];
+  minSteps?: number;
+  maxSteps?: number;
+  defaultSteps?: number;
+
+  // Guidance/CFG scale parameters
+  minGuidanceScale?: number;
+  maxGuidanceScale?: number;
+  defaultGuidanceScale?: number;
+
+  // Strength parameter (for img2img, video2video)
+  minStrength?: number;
+  maxStrength?: number;
+  defaultStrength?: number;
+
+  // Feature flags
+  hasSeed?: boolean;
+  hasNegativePrompt?: boolean;
+  hasSafetyChecker?: boolean;
+
+  // Scheduler and acceleration
+  availableSchedulers?: string[];
+  defaultScheduler?: string;
+  availableAcceleration?: string[];
+  defaultAcceleration?: string;
+
+  // Structured pricing information (from fal_models_schemas.json)
+  pricing?: ModelPricing;
 };
 
 export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
@@ -46,6 +104,47 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 5,
     category: "image",
     inputAsset: ["image"],
+    availableDimensions: [
+      {
+        width: 1344,
+        height: 576,
+        label: "1344x576 (21:9)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 768,
+        label: "1024x768 (4:3)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+      {
+        width: 768,
+        height: 1024,
+        label: "768x1024 (3:4)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 576,
+        height: 1344,
+        label: "576x1344 (9:21)",
+      },
+    ],
+    minGuidanceScale: 1,
+    maxGuidanceScale: 20,
+    defaultGuidanceScale: 3.5,
+    hasSeed: true,
   },
   {
     provider: "fal",
@@ -60,6 +159,47 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
       prompt: "",
       image_url: "",
     },
+    availableDimensions: [
+      {
+        width: 1344,
+        height: 576,
+        label: "1344x576 (21:9)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 768,
+        label: "1024x768 (4:3)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+      {
+        width: 768,
+        height: 1024,
+        label: "768x1024 (3:4)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 576,
+        height: 1344,
+        label: "576x1344 (9:21)",
+      },
+    ],
+    minGuidanceScale: 1,
+    maxGuidanceScale: 20,
+    defaultGuidanceScale: 3.5,
+    hasSeed: true,
   },
   {
     provider: "fal",
@@ -72,6 +212,38 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     initialInput: {
       prompt: "",
     },
+    availableDimensions: [
+      {
+        width: 1344,
+        height: 576,
+        label: "1344x576 (21:9)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+      {
+        width: 1024,
+        height: 768,
+        label: "1024x768 (4:3)",
+      },
+      {
+        width: 768,
+        height: 1024,
+        label: "768x1024 (3:4)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -84,10 +256,10 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     inputAsset: ["image"],
     initialInput: {
       prompt: "",
-      image_url: "",
+      image_urls: [],
     },
     inputMap: {
-      image_url: "image",
+      image_url: "image_urls",
     },
   },
   {
@@ -100,7 +272,11 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     category: "image",
     initialInput: {
       prompt: "",
+      defaultWidth: 2048,
+      defaultHeight: 2048,
     },
+    hasSeed: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -113,8 +289,15 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     inputAsset: ["image"],
     initialInput: {
       prompt: "",
-      image_url: "",
+      image_urls: [],
+      defaultWidth: 2048,
+      defaultHeight: 2048,
     },
+    inputMap: {
+      image_url: "image_urls",
+    },
+    hasSeed: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -127,6 +310,11 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     initialInput: {
       prompt: "",
     },
+    minGuidanceScale: 1,
+    maxGuidanceScale: 10,
+    defaultGuidanceScale: 2.5,
+    hasSeed: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -165,7 +353,10 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     inputAsset: ["image"],
     initialInput: {
       prompt: "",
-      image_url: "",
+      image_urls: [],
+    },
+    inputMap: {
+      image_url: "image_urls",
     },
   },
   {
@@ -181,6 +372,14 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
       prompt: "",
       image_url: "",
     },
+    minSteps: 10,
+    maxSteps: 50,
+    defaultSteps: 30,
+    minGuidanceScale: 0,
+    maxGuidanceScale: 20,
+    defaultGuidanceScale: 2.5,
+    hasSeed: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -191,6 +390,14 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "$0.025/megapixel",
     popularity: 5,
     category: "image",
+    minSteps: 1,
+    maxSteps: 50,
+    defaultSteps: 28,
+    minGuidanceScale: 1,
+    maxGuidanceScale: 20,
+    defaultGuidanceScale: 3.5,
+    hasSeed: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -201,16 +408,18 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "$0.08/image",
     popularity: 5,
     category: "image",
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
     endpointId: "fal-ai/ideogram/v3/edit",
-    label: "Ideogram V3 (Image)",
-    description: "Image-to-image transformation with text rendering excellence",
+    label: "Ideogram V3 (Inpainting)",
+    description: "Inpainting with mask support - requires mask_url parameter",
     cost: "$0.08/image",
     popularity: 5,
     category: "image",
-    inputAsset: ["image"],
+    hasSeed: true,
   },
   {
     provider: "fal",
@@ -220,6 +429,7 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "$0.0125/image",
     popularity: 5,
     category: "image",
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -230,6 +440,38 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "image",
     inputAsset: ["image"],
+    availableDimensions: [
+      {
+        width: 1344,
+        height: 576,
+        label: "1344x576 (21:9)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+      {
+        width: 1024,
+        height: 768,
+        label: "1024x768 (4:3)",
+      },
+      {
+        width: 768,
+        height: 1024,
+        label: "768x1024 (3:4)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -239,6 +481,15 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "$0.03/megapixel",
     popularity: 4,
     category: "image",
+    minSteps: 1,
+    maxSteps: 50,
+    defaultSteps: 28,
+    minGuidanceScale: 0,
+    maxGuidanceScale: 20,
+    defaultGuidanceScale: 3.5,
+    hasSeed: true,
+    hasNegativePrompt: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -248,6 +499,52 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "$0.003/megapixel",
     popularity: 4,
     category: "image",
+    minSteps: 1,
+    maxSteps: 12,
+    defaultSteps: 4,
+    minGuidanceScale: 1,
+    maxGuidanceScale: 20,
+    defaultGuidanceScale: 3.5,
+    hasSeed: true,
+    hasSafetyChecker: true,
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1) - Square",
+        preset: "square",
+      },
+      {
+        width: 1536,
+        height: 1536,
+        label: "1536x1536 (1:1) - Square HD",
+        preset: "square_hd",
+      },
+      {
+        width: 1024,
+        height: 768,
+        label: "1024x768 (4:3) - Landscape",
+        preset: "landscape_4_3",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9) - Landscape",
+        preset: "landscape_16_9",
+      },
+      {
+        width: 768,
+        height: 1024,
+        label: "768x1024 (3:4) - Portrait",
+        preset: "portrait_4_3",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16) - Portrait",
+        preset: "portrait_16_9",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -261,6 +558,35 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
       prompt:
         "An ultra-detailed macro photograph of a butterfly wing showing intricate patterns and iridescent colors with perfect focus and lighting",
     },
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 768,
+        height: 1024,
+        label: "768x1024 (3:4)",
+      },
+      {
+        width: 1024,
+        height: 768,
+        label: "1024x768 (4:3)",
+      },
+    ],
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -274,6 +600,35 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     initialInput: {
       prompt: "",
     },
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 768,
+        height: 1024,
+        label: "768x1024 (3:4)",
+      },
+      {
+        width: 1024,
+        height: 768,
+        label: "1024x768 (4:3)",
+      },
+    ],
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -288,6 +643,8 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
       aspect_ratio: "16:9",
       raw: true,
     },
+    hasSeed: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -297,6 +654,15 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "$0.1/megapixel",
     popularity: 3,
     category: "image",
+    minSteps: 1,
+    maxSteps: 50,
+    defaultSteps: 28,
+    minGuidanceScale: 1,
+    maxGuidanceScale: 20,
+    defaultGuidanceScale: 7.5,
+    hasSeed: true,
+    hasNegativePrompt: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -317,6 +683,9 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "TBA",
     popularity: 3,
     category: "image",
+    hasSeed: true,
+    hasNegativePrompt: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -327,6 +696,16 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 3,
     category: "image",
     inputAsset: ["image"],
+    initialInput: {
+      prompt: "",
+      image_urls: [],
+    },
+    inputMap: {
+      image_url: "image_urls",
+    },
+    hasSeed: true,
+    hasNegativePrompt: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -336,16 +715,60 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "$0.05/megapixel",
     popularity: 2,
     category: "image",
+    defaultWidth: 1024,
+    defaultHeight: 1024,
+    minSteps: 1,
+    maxSteps: 50,
+    defaultSteps: 50,
+    minGuidanceScale: 0,
+    maxGuidanceScale: 20,
+    defaultGuidanceScale: 5,
+    hasSeed: true,
+    hasNegativePrompt: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
     endpointId: "fal-ai/qwen-image",
     label: "Qwen Image",
-    description: "Multimodal image generation and editing",
+    description: "Text-to-image generation with Qwen multimodal model",
+    cost: "~$0.03/megapixel",
+    popularity: 2,
+    category: "image",
+    minSteps: 2,
+    maxSteps: 250,
+    defaultSteps: 30,
+    minGuidanceScale: 0,
+    maxGuidanceScale: 20,
+    defaultGuidanceScale: 2.5,
+    hasSeed: true,
+    hasNegativePrompt: true,
+    hasSafetyChecker: true,
+  },
+  {
+    provider: "fal",
+    endpointId: "fal-ai/qwen-image/image-to-image",
+    label: "Qwen Image (Image-to-Image)",
+    description: "Image-to-image transformation with Qwen multimodal model",
     cost: "~$0.03/megapixel",
     popularity: 2,
     category: "image",
     inputAsset: ["image"],
+    inputMap: {
+      image: "image_url",
+    },
+    minSteps: 2,
+    maxSteps: 250,
+    defaultSteps: 30,
+    minGuidanceScale: 0,
+    maxGuidanceScale: 20,
+    defaultGuidanceScale: 2.5,
+    minStrength: 0,
+    maxStrength: 1,
+    defaultStrength: 0.95,
+    hasSeed: true,
+    hasNegativePrompt: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -359,6 +782,27 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     initialInput: {
       prompt: "",
     },
+    availableDurations: [4, 6, 8],
+    defaultDuration: 8,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -372,6 +816,27 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     initialInput: {
       prompt: "",
     },
+    availableDurations: [4, 6, 8],
+    defaultDuration: 8,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -387,6 +852,25 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
       prompt: "",
       image_url: "",
     },
+    availableDurations: [8],
+    defaultDuration: 8,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -402,6 +886,25 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
       prompt: "",
       image_url: "",
     },
+    availableDurations: [8],
+    defaultDuration: 8,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -411,6 +914,27 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "TBA",
     popularity: 5,
     category: "video",
+    availableDurations: [4, 6, 8],
+    defaultDuration: 8,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -420,6 +944,27 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "TBA",
     popularity: 5,
     category: "video",
+    availableDurations: [4, 6, 8],
+    defaultDuration: 8,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -430,6 +975,20 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 5,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [8],
+    defaultDuration: 8,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -440,6 +999,20 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 5,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [8],
+    defaultDuration: 8,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -450,6 +1023,8 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 5,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [8],
+    defaultDuration: 8,
   },
   {
     provider: "fal",
@@ -460,6 +1035,25 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [8],
+    defaultDuration: 8,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -470,6 +1064,25 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [8],
+    defaultDuration: 8,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -485,6 +1098,42 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
       prompt: "",
       image_url: "",
     },
+    availableDurations: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    defaultDuration: 5,
+    availableDimensions: [
+      {
+        width: 1344,
+        height: 576,
+        label: "1344x576 (21:9)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 768,
+        label: "1024x768 (4:3)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+      {
+        width: 768,
+        height: 1024,
+        label: "768x1024 (3:4)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+    ],
+    hasSeed: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -495,6 +1144,29 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "$0.35/5sec",
     popularity: 5,
     category: "video",
+    availableDurations: [5, 10],
+    defaultDuration: 5,
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
+    minGuidanceScale: 0,
+    maxGuidanceScale: 1,
+    defaultGuidanceScale: 0.5,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -505,6 +1177,12 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 5,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [5, 10],
+    defaultDuration: 5,
+    minGuidanceScale: 0,
+    maxGuidanceScale: 1,
+    defaultGuidanceScale: 0.5,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -520,6 +1198,12 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
       prompt: "",
       image_url: "",
     },
+    availableDurations: [5, 10],
+    defaultDuration: 5,
+    minGuidanceScale: 0,
+    maxGuidanceScale: 1,
+    defaultGuidanceScale: 0.5,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -530,6 +1214,38 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 5,
     category: "video",
     inputAsset: ["image"],
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 768,
+        label: "1024x768 (4:3)",
+      },
+      {
+        width: 768,
+        height: 1024,
+        label: "768x1024 (3:4)",
+      },
+      {
+        width: 1344,
+        height: 576,
+        label: "1344x576 (21:9)",
+      },
+      {
+        width: 576,
+        height: 1344,
+        label: "576x1344 (9:21)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -539,6 +1255,26 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "$0.20/5sec",
     popularity: 4,
     category: "video",
+    defaultDuration: 5,
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -549,6 +1285,9 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "video",
     inputAsset: ["image"],
+    defaultDuration: 5,
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -560,6 +1299,22 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [5, 6, 7, 8],
+    defaultDuration: 5,
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+    ],
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -571,6 +1326,20 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [5, 6, 7, 8],
+    defaultDuration: 5,
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -580,6 +1349,20 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "TBA",
     popularity: 4,
     category: "video",
+    availableDurations: [4, 8, 12],
+    defaultDuration: 4,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -589,6 +1372,20 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "TBA",
     popularity: 5,
     category: "video",
+    availableDurations: [4, 8, 12],
+    defaultDuration: 4,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -599,6 +1396,20 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [4, 8, 12],
+    defaultDuration: 4,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -609,6 +1420,20 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 5,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [4, 8, 12],
+    defaultDuration: 4,
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -618,6 +1443,11 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "TBA",
     popularity: 4,
     category: "video",
+    minSteps: 1,
+    maxSteps: 50,
+    defaultSteps: 30,
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -628,6 +1458,11 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "video",
     inputAsset: ["image"],
+    minSteps: 1,
+    maxSteps: 50,
+    defaultSteps: 30,
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -638,6 +1473,29 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [5, 10],
+    defaultDuration: 5,
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
+    minGuidanceScale: 0,
+    maxGuidanceScale: 1,
+    defaultGuidanceScale: 0.5,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -648,6 +1506,29 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [5, 10],
+    defaultDuration: 5,
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
+    minGuidanceScale: 0,
+    maxGuidanceScale: 1,
+    defaultGuidanceScale: 0.5,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -657,6 +1538,8 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "~$0.045/sec",
     popularity: 4,
     category: "video",
+    availableDurations: [6, 10],
+    defaultDuration: 6,
   },
   {
     provider: "fal",
@@ -667,6 +1550,8 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [6, 10],
+    defaultDuration: 6,
   },
   {
     provider: "fal",
@@ -681,6 +1566,23 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
       flow_shift: 7,
       embedded_guidance_scale: 6,
     },
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+    ],
+    minSteps: 2,
+    maxSteps: 30,
+    defaultSteps: 30,
+    hasSeed: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -731,6 +1633,28 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     cost: "TBA",
     popularity: 3,
     category: "video",
+    availableDurations: [5, 10],
+    defaultDuration: 5,
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
+    hasSeed: true,
+    hasNegativePrompt: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -741,6 +1665,11 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 3,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [5, 10],
+    defaultDuration: 5,
+    hasSeed: true,
+    hasNegativePrompt: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -751,6 +1680,8 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 4,
     category: "video",
     inputAsset: ["image"],
+    hasSeed: true,
+    hasSafetyChecker: true,
   },
   {
     provider: "fal",
@@ -762,6 +1693,23 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     category: "video",
     imageForFrame: true,
     inputAsset: ["image"],
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+    ],
+    minSteps: 2,
+    maxSteps: 50,
+    defaultSteps: 40,
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -782,6 +1730,29 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 2,
     category: "video",
     cameraControl: true,
+    availableDurations: [5, 10],
+    defaultDuration: 5,
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
+    minGuidanceScale: 0,
+    maxGuidanceScale: 1,
+    defaultGuidanceScale: 0.5,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -793,6 +1764,37 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 2,
     category: "video",
     inputAsset: ["image"],
+    availableDurations: [5, 8],
+    defaultDuration: 5,
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 1024,
+        height: 768,
+        label: "1024x768 (4:3)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+      {
+        width: 768,
+        height: 1024,
+        label: "768x1024 (3:4)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+    ],
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -803,6 +1805,9 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 2,
     category: "video",
     inputAsset: ["video"],
+    defaultDuration: 8,
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -813,6 +1818,18 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 1,
     category: "video",
     inputAsset: ["image"],
+    availableDimensions: [
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+    ],
   },
   {
     provider: "fal",
@@ -823,6 +1840,34 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 1,
     category: "video",
     inputAsset: ["image"],
+    availableDimensions: [
+      {
+        width: 1024,
+        height: 576,
+        label: "1024x576 (16:9)",
+      },
+      {
+        width: 576,
+        height: 1024,
+        label: "576x1024 (9:16)",
+      },
+      {
+        width: 1024,
+        height: 1024,
+        label: "1024x1024 (1:1)",
+      },
+    ],
+    minSteps: 1,
+    maxSteps: 75,
+    defaultSteps: 50,
+    minGuidanceScale: 1,
+    maxGuidanceScale: 20,
+    defaultGuidanceScale: 5,
+    minStrength: 0,
+    maxStrength: 2,
+    defaultStrength: 1,
+    hasSeed: true,
+    hasNegativePrompt: true,
   },
   {
     provider: "fal",
@@ -833,6 +1878,7 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 1,
     category: "video",
     inputAsset: ["image", "audio"],
+    hasSeed: true,
   },
   {
     provider: "fal",
@@ -845,6 +1891,9 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     initialInput: {
       seconds_total: 30,
     },
+    minSteps: 1,
+    maxSteps: 1000,
+    defaultSteps: 100,
   },
   {
     provider: "fal",
@@ -870,6 +1919,8 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     popularity: 3,
     category: "music",
     inputAsset: ["video"],
+    defaultDuration: 10,
+    hasSeed: true,
   },
   {
     provider: "fal",
@@ -934,6 +1985,7 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
         },
       ],
     },
+    hasSeed: true,
   },
   {
     provider: "fal",
@@ -946,6 +1998,7 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     inputMap: {
       prompt: "text",
     },
+    hasSeed: true,
   },
   {
     provider: "fal",
@@ -967,3 +2020,44 @@ export const AVAILABLE_ENDPOINTS: ApiInfo[] = [
     },
   },
 ];
+
+/**
+ * Get enhanced API info with pricing data from schema
+ */
+export function getEnhancedApiInfo(endpointId: string): ApiInfo | undefined {
+  const endpoint = AVAILABLE_ENDPOINTS.find((e) => e.endpointId === endpointId);
+  if (!endpoint) return undefined;
+
+  // Get pricing data from schema
+  const schema = getModelSchema(endpointId);
+  if (schema?.pricing) {
+    return {
+      ...endpoint,
+      pricing: schema.pricing,
+    };
+  }
+
+  return endpoint;
+}
+
+/**
+ * Get all endpoints enhanced with pricing data
+ */
+export function getEnhancedEndpoints(): ApiInfo[] {
+  return AVAILABLE_ENDPOINTS.map((endpoint) => {
+    const schema = getModelSchema(endpoint.endpointId);
+    if (schema?.pricing) {
+      return {
+        ...endpoint,
+        pricing: schema.pricing,
+      };
+    }
+    return endpoint;
+  });
+}
+
+/**
+ * Calculate cost for a model generation
+ * Re-export from pricing module for convenience
+ */
+export { calculateModelCost, formatCost, getPricingInfo };

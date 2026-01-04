@@ -5,6 +5,7 @@ export type VideoProject = {
   title: string;
   description: string;
   aspectRatio: AspectRatio;
+  duration?: number;
 };
 
 export const PROJECT_PLACEHOLDER: VideoProject = {
@@ -12,6 +13,7 @@ export const PROJECT_PLACEHOLDER: VideoProject = {
   title: "",
   description: "",
   aspectRatio: "16:9",
+  duration: 30000,
 };
 
 export type VideoTrackType = "video" | "music" | "voiceover";
@@ -64,6 +66,16 @@ export type KeyFrameData = {
       prompt: string;
       url: string;
     }
+  | {
+      type: "voiceover";
+      prompt: string;
+      url: string;
+    }
+  | {
+      type: "music";
+      prompt: string;
+      url: string;
+    }
 );
 
 export type MediaItem = {
@@ -81,6 +93,7 @@ export type MediaItem = {
   output?: Record<string, any>;
   url?: string;
   blob?: Blob;
+  thumbnailBlob?: Blob;
   metadata?: Record<string, any>;
 } & (
   | {

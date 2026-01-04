@@ -39,7 +39,19 @@ export async function exportVideoClientSide(
 
   if (onProgress) {
     ffmpeg.on("progress", ({ progress }) => {
-      onProgress(Math.min(progress * 100, 99));
+      // Validate and normalize progress value
+      // FFmpeg can return unexpected values (NaN, negative, or very large numbers)
+      if (
+        typeof progress !== "number" ||
+        !Number.isFinite(progress) ||
+        progress < 0
+      ) {
+        return;
+      }
+
+      // Clamp progress between 0 and 99
+      const normalizedProgress = Math.min(Math.max(progress * 100, 0), 99);
+      onProgress(normalizedProgress);
     });
   }
 
@@ -182,6 +194,7 @@ export async function exportVideoClientSide(
           "30",
           "-pix_fmt",
           "yuv420p",
+          "-an",
           outputFilename,
         ]);
 
@@ -391,6 +404,10 @@ export async function exportVideoClientSide(
       "output.mp4",
       "-i",
       mixedAudioFilename,
+      "-map",
+      "0:v:0",
+      "-map",
+      "1:a:0",
       "-c:v",
       "copy",
       "-c:a",
@@ -426,6 +443,32 @@ export async function getMediaMetadata(media: MediaItem) {
       return { media: {} };
     }
 
+    // Handle images separately to extract dimensions
+    if (media.mediaType === "image") {
+      return new Promise<{ media: any }>((resolve) => {
+        const img = document.createElement("img");
+
+        img.addEventListener("load", () => {
+          const metadata = {
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+          };
+          resolve({ media: metadata });
+        });
+
+        img.addEventListener("error", () => {
+          console.error("Failed to load image metadata");
+          resolve({ media: {} });
+        });
+
+        if (mediaUrl.startsWith("blob:")) {
+          img.src = mediaUrl;
+        } else {
+          img.src = `${window.location.origin}/api/download?url=${encodeURIComponent(mediaUrl)}`;
+        }
+      });
+    }
+
     return new Promise<{ media: any }>((resolve) => {
       const mediaElement =
         media.mediaType === "video"
@@ -459,10 +502,17 @@ export async function getMediaMetadata(media: MediaItem) {
 
 export async function extractVideoThumbnail(
   videoUrl: string,
-): Promise<string | null> {
+): Promise<Blob | null> {
   try {
     const video = document.createElement("video");
-    video.src = videoUrl;
+
+    // Use proxy for external URLs to avoid CORS issues
+    if (videoUrl.startsWith("blob:")) {
+      video.src = videoUrl;
+    } else {
+      video.src = `${window.location.origin}/api/download?url=${encodeURIComponent(videoUrl)}`;
+    }
+
     video.crossOrigin = "anonymous";
     video.muted = true;
 
@@ -488,7 +538,16 @@ export async function extractVideoThumbnail(
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    return canvas.toDataURL("image/jpeg", 0.8);
+    // Convert canvas to Blob instead of data URL
+    return new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(
+        (blob) => {
+          resolve(blob);
+        },
+        "image/jpeg",
+        0.8,
+      );
+    });
   } catch (error) {
     console.error("Failed to generate video thumbnail:", error);
     return null;
