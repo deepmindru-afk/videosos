@@ -1,15 +1,19 @@
-# VideoSOS - Open-Source AI Video Editor with 100+ Models
+<div align="center">
 
-[![GitHub stars](https://img.shields.io/github/stars/timoncool/videosos?style=social)](https://github.com/timoncool/videosos/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/timoncool/videosos?style=social)](https://github.com/timoncool/videosos/network/members)
-[![GitHub issues](https://img.shields.io/github/issues/timoncool/videosos)](https://github.com/timoncool/videosos/issues)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org)
-[![Remotion](https://img.shields.io/badge/Remotion-latest-blue)](https://remotion.dev)
+# VideoSOS
+
+**Open-source AI video editor with 100+ models — text-to-video, image-to-video, lip sync, music, voiceover.**
+
+[![Stars](https://img.shields.io/github/stars/timoncool/videosos?style=flat-square)](https://github.com/timoncool/videosos/stargazers)
+[![License](https://img.shields.io/github/license/timoncool/videosos?style=flat-square)](LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/timoncool/videosos?style=flat-square)](https://github.com/timoncool/videosos/commits)
+[![Demo](https://img.shields.io/badge/demo-live-brightgreen?style=flat-square)](https://videosos.vercel.app/)
+
+**[Try the Live Demo](https://videosos.vercel.app/)** · **[Русская версия](./README.ru.md)**
+
+</div>
 
 Create professional videos with AI in your browser. Free, open-source video editor featuring Google Veo 3.1, FLUX, Gemini 2.5 Flash, Imagen 4, and 100+ top AI models for text-to-video, image-to-video, text-to-image generation, image editing, music composition, and voiceover creation. No uploads, complete privacy, advanced timeline editing.
-
-**[🚀 Try the Live Demo](https://videosos.vercel.app/)** | [🇷🇺 Русская версия README](./README.ru.md)
 
 ## Screenshots
 
@@ -230,9 +234,36 @@ To stop services:
 docker compose down
 ```
 
+## Other Projects by [@timoncool](https://github.com/timoncool)
+
+| Project | Description |
+|---------|-------------|
+| [ACE-Step Studio](https://github.com/timoncool/ACE-Step-Studio) | AI music studio — songs, vocals, covers, videos |
+| [Bulka](https://github.com/timoncool/Bulka) | Live-coding music platform |
+| [GitLife](https://github.com/timoncool/gitlife) | Your life in weeks — interactive calendar |
+| [telegram-api-mcp](https://github.com/timoncool/telegram-api-mcp) | Full Telegram Bot API as MCP server |
+| [civitai-mcp-ultimate](https://github.com/timoncool/civitai-mcp-ultimate) | Civitai API as MCP server |
+| [ScreenSavy.com](https://github.com/timoncool/ScreenSavy.com) | Ambient screen generator |
+
+## Support the Author
+
+I build open-source software and do AI research. Most of what I create is free and available to everyone. Your donations help me keep creating without worrying about where the next meal comes from =)
+
+**[All donation methods](https://github.com/timoncool/ACE-Step-Studio/blob/master/DONATE.md)** | **[dalink.to/nerual_dreming](https://dalink.to/nerual_dreming)** | **[boosty.to/neuro_art](https://boosty.to/neuro_art)**
+
+- **BTC:** `1E7dHL22RpyhJGVpcvKdbyZgksSYkYeEBC`
+- **ETH (ERC20):** `0xb5db65adf478983186d4897ba92fe2c25c594a0c`
+- **USDT (TRC20):** `TQST9Lp2TjK6FiVkn4fwfGUee7NmkxEE7C`
+
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=timoncool/videosos&type=Date)](https://star-history.com/#timoncool/videosos&Date)
+<a href="https://github.com/timoncool/videosos/stargazers">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="docs/stars-dark.svg" />
+   <source media="(prefers-color-scheme: light)" srcset="docs/stars-light.svg" />
+   <img alt="Star History Chart" src="docs/stars-light.svg" />
+ </picture>
+</a>
 
 ## Contributing
 
